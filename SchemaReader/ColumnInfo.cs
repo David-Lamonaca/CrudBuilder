@@ -1,0 +1,1 @@
+public record ColumnInfo(string Name, string SqlType, bool IsNullable, int? MaxLength, bool IsPrimaryKey);
