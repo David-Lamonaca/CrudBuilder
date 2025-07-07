@@ -1,8 +1,9 @@
 using Microsoft.Data.SqlClient;
+using System;
+using System.Collections.Generic;
 
 public class SqlServerSchemaReader : IDatabaseSchemaReader
 {
-
     public List<string> GetTables(string connectionString)
     {
         var tables = new List<string>();
@@ -28,19 +29,21 @@ public class SqlServerSchemaReader : IDatabaseSchemaReader
     {
         var columns = new List<ColumnInfo>();
         var primaryKeyCols = new HashSet<string>();
+        var indexedCols = new HashSet<string>();
+        var uniqueCols = new HashSet<string>();
 
         using var conn = new SqlConnection(connectionString);
         conn.Open();
 
-        // First: get actual PK columns
+        // Primary key columns
         using (var pkCmd = new SqlCommand(@"
-        SELECT kcu.COLUMN_NAME
-        FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS tc
-        JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE kcu
-            ON tc.CONSTRAINT_NAME = kcu.CONSTRAINT_NAME
-        WHERE tc.TABLE_NAME = @Table
-            AND tc.CONSTRAINT_TYPE = 'PRIMARY KEY'
-    ", conn))
+            SELECT kcu.COLUMN_NAME
+            FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS tc
+            JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE kcu
+                ON tc.CONSTRAINT_NAME = kcu.CONSTRAINT_NAME
+            WHERE tc.TABLE_NAME = @Table
+              AND tc.CONSTRAINT_TYPE = 'PRIMARY KEY'
+        ", conn))
         {
             pkCmd.Parameters.AddWithValue("@Table", tableName);
             using var pkReader = pkCmd.ExecuteReader();
@@ -50,12 +53,34 @@ public class SqlServerSchemaReader : IDatabaseSchemaReader
             }
         }
 
-        // Then: get all columns and tag PKs properly
+        // Indexes and uniqueness
+        using (var idxCmd = new SqlCommand(@"
+            SELECT c.name AS ColumnName, i.is_unique
+            FROM sys.indexes i
+            JOIN sys.index_columns ic ON i.object_id = ic.object_id AND i.index_id = ic.index_id
+            JOIN sys.columns c ON ic.object_id = c.object_id AND ic.column_id = c.column_id
+            WHERE i.object_id = OBJECT_ID(@Table)
+        ", conn))
+        {
+            idxCmd.Parameters.AddWithValue("@Table", tableName);
+            using var idxReader = idxCmd.ExecuteReader();
+            while (idxReader.Read())
+            {
+                var colName = idxReader["ColumnName"].ToString()!;
+                indexedCols.Add(colName);
+                if ((bool)idxReader["is_unique"])
+                {
+                    uniqueCols.Add(colName);
+                }
+            }
+        }
+
+        // Column definitions
         using (var colCmd = new SqlCommand(@"
-        SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE, CHARACTER_MAXIMUM_LENGTH
-        FROM INFORMATION_SCHEMA.COLUMNS
-        WHERE TABLE_NAME = @Table
-    ", conn))
+            SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE, CHARACTER_MAXIMUM_LENGTH
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_NAME = @Table
+        ", conn))
         {
             colCmd.Parameters.AddWithValue("@Table", tableName);
             using var reader = colCmd.ExecuteReader();
@@ -67,8 +92,18 @@ public class SqlServerSchemaReader : IDatabaseSchemaReader
                 bool isNullable = reader.GetString(2) == "YES";
                 int? maxLength = reader.IsDBNull(3) ? null : reader.GetInt32(3);
                 bool isPrimaryKey = primaryKeyCols.Contains(name);
+                bool isRowVersion = sqlType == "timestamp" || sqlType == "rowversion";
 
-                columns.Add(new ColumnInfo(name, sqlType, isNullable, maxLength, isPrimaryKey));
+                columns.Add(new ColumnInfo(
+                    name,
+                    isPK: isPrimaryKey,
+                    isIdx: indexedCols.Contains(name),
+                    isUK: uniqueCols.Contains(name),
+                    maxLength: maxLength,
+                    sqlType: sqlType,
+                    isRowVer: isRowVersion,
+                    isNullable: isNullable // ✅ Added this argument
+                ));
             }
         }
 

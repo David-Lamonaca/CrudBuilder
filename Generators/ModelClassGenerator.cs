@@ -55,7 +55,7 @@ public class ModelClassGenerator
             sb.AppendLine();
             foreach (var fk in toFks)
             {
-                string targetClass = NameHumanizer.Singularize(fk.ToTable);
+                string targetClass = NameHumanizer.Singularize(fk.FromTable);
                 string collectionProp = NameHumanizer.Pluralize(targetClass);
                 sb.AppendLine($"    public virtual ICollection<{targetClass}> {collectionProp} {{ get; set; }} = new List<{targetClass}>();");
             }
