@@ -4,7 +4,7 @@ using System.Text.RegularExpressions;
 // Prompt for connection string
 // "Server=(localdb)\MSSQLLocalDB;Database=Contractor;Integrated Security=True;TrustServerCertificate=True";
 Console.WriteLine("Enter Connection String:");
-string? inputConnStr = Console.ReadLine();
+string? inputConnStr = "Server=(localdb)\\MSSQLLocalDB;Database=Contractor;Integrated Security=True;TrustServerCertificate=True"; //Console.ReadLine();
 
 while (string.IsNullOrWhiteSpace(inputConnStr))
 {
@@ -53,21 +53,23 @@ catch (SqlException ex)
 
 string databaseName = builder.InitialCatalog;
 string outputRoot = Path.Combine("Output", databaseName);
+string interfaceOutputDir = Path.Combine(outputRoot, "DA_Layer/Interfaces");
 
 IDatabaseSchemaReader schemaReader = new SqlServerSchemaReader();
 List<ForeignKeyInfo> foreignKeys = schemaReader.GetForeignKeys(connectionString);
 ModelClassGenerator modelGenerator = new ModelClassGenerator(foreignKeys);
 
+List<string> tables = schemaReader.GetTables(connectionString);
 Dictionary<string, List<ColumnInfo>> mappedTables = new();
 
-foreach (var table in schemaReader.GetTables(connectionString))
+foreach (var table in tables)
 {
     var className = NameHumanizer.Singularize(table);
     List<ColumnInfo> columns = schemaReader.GetColumns(connectionString, table);
     mappedTables.Add(table, columns);
 
     string classCode = modelGenerator.GenerateModelClass(className, columns);
-    string outputPath = Path.Combine(outputRoot, $"Models/{className}.cs");
+    string outputPath = Path.Combine(outputRoot, $"DA_Layer/Models/{className}.cs");
 
     // Check for overwrite
     if (File.Exists(outputPath))
@@ -84,10 +86,12 @@ foreach (var table in schemaReader.GetTables(connectionString))
     Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
     File.WriteAllText(outputPath, classCode);
     Console.WriteLine($"✅ Generated model for table '{className}' at: {outputPath}");
+
+    DaoInterfaceGenerator.WriteInterfaceToFile(className, columns, interfaceOutputDir);
 }
 
 // Generate DbContext
-string contextPath = Path.Combine(outputRoot, $"{databaseName}Context.cs");
+string contextPath = Path.Combine(outputRoot, $"DA_Layer/{databaseName}Context.cs");
 
 if (File.Exists(contextPath))
 {

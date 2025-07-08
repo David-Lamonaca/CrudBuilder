@@ -17,7 +17,7 @@ public static class DbContextGenerator
         string outputDir = Path.Combine("Output", dbName);
         Directory.CreateDirectory(outputDir);
 
-        string outputPath = Path.Combine(outputDir, $"{dbName}Context.cs");
+        string outputPath = Path.Combine(outputDir, $"DA_Layer/{dbName}Context.cs");
         File.WriteAllText(outputPath, contextCode);
     }
 
