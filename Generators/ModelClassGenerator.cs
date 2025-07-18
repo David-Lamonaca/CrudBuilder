@@ -15,17 +15,18 @@ public class ModelClassGenerator
         _fksToTable = _foreignKeys.GroupBy(fk => fk.ToTable).ToDictionary(g => g.Key, g => g.ToList());
     }
 
-    public string GenerateModelClass(string tableName, List<ColumnInfo> columns)
+    public void GenerateModelClass(string tableName, List<ColumnInfo> columns, string outputDirectory)
     {
         var sb = new StringBuilder();
-        sb.AppendLine(GenerateClassComment(tableName));
+        sb.AppendLine(ClassCommentGenerator.Generate(tableName, @"Model Class which mimics the corresponding table in the database.
+*             Sole purpose is to hold data."));
         sb.AppendLine($"public class {tableName}");
         sb.AppendLine("{");
 
         // Properties for table columns
         foreach (var col in columns)
         {
-            var type = MapToCSharpType(col.SqlType, col.IsNullable);
+            var type = SqlTypeMapper.MapToCSharpType(col.SqlType ?? "", col.IsNullable);
 
             bool needsNullForgiveness = !col.IsNullable && (type == "string" || type.EndsWith("[]") || type == "object");
             if (needsNullForgiveness)
@@ -62,83 +63,8 @@ public class ModelClassGenerator
         }
 
         sb.AppendLine("}");
-        return sb.ToString();
-    }
 
-    private string MapToCSharpType(string sqlType, bool isNullable)
-    {
-        string type = sqlType.ToLower() switch
-        {
-            // Integer types
-            "int" => "int",
-            "bigint" => "long",
-            "smallint" => "short",
-            "tinyint" => "byte",
-
-            // Boolean
-            "bit" => "bool",
-
-            // Decimal & currency
-            "decimal" => "decimal",
-            "numeric" => "decimal",
-            "money" => "decimal",
-            "smallmoney" => "decimal",
-
-            // Floating point
-            "float" => "double",
-            "real" => "float",
-
-            // Date and time
-            "date" => "DateTime",
-            "datetime" => "DateTime",
-            "datetime2" => "DateTime",
-            "smalldatetime" => "DateTime",
-            "datetimeoffset" => "DateTimeOffset",
-            "time" => "TimeSpan",
-
-            // Character strings
-            "char" => "string",
-            "varchar" => "string",
-            "nchar" => "string",
-            "nvarchar" => "string",
-            "text" => "string",
-            "ntext" => "string",
-
-            // Binary data
-            "binary" => "byte[]",
-            "varbinary" => "byte[]",
-            "image" => "byte[]",
-            "rowversion" => "byte[]",
-            "timestamp" => "byte[]",
-
-            // Unique identifier
-            "uniqueidentifier" => "Guid",
-
-            // XML
-            "xml" => "string",
-
-            // SQL Variant
-            "sql_variant" => "object",
-
-            // Default fallback
-            _ => "string"
-        };
-
-
-        return isNullable ? type + "?" : type;
-    }
-
-    private string GenerateClassComment(string className)
-    {
-        return
-    $@"/**
-*  \File:	  {className}.cs
-*  \Author:		    
-*  \Date:	  {DateTime.Now.ToString("MMM/dd/yyyy")}
-*  \Version:  1.0
-*  \Brief:	  Model Class which mimics the corresponding table in the database.
-*             Sole purpose is to hold data.
-*/
-    ";
+        string path = Path.Combine(outputDirectory, $"{tableName}.cs");
+        FileWriteHelper.WriteFileSafely(path, sb.ToString());
     }
 }

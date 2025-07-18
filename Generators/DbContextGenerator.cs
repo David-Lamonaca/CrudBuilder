@@ -29,6 +29,8 @@ public static class DbContextGenerator
         var sb = new StringBuilder();
         var contextName = $"{dbName}Context";
 
+        sb.AppendLine(ClassCommentGenerator.Generate(contextName, @"Used to Query/Save data From/To the database, configure domain classes(Models Folder), 
+*              database related mappings, change tracking settings, caching, transaction, etc."));
         sb.AppendLine("using Microsoft.EntityFrameworkCore;");
         sb.AppendLine();
         sb.AppendLine($"public partial class {contextName} : DbContext");

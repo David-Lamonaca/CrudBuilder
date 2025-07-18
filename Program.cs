@@ -53,7 +53,6 @@ catch (SqlException ex)
 
 string databaseName = builder.InitialCatalog;
 string outputRoot = Path.Combine("Output", databaseName);
-string interfaceOutputDir = Path.Combine(outputRoot, "DA_Layer/Interfaces");
 
 IDatabaseSchemaReader schemaReader = new SqlServerSchemaReader();
 List<ForeignKeyInfo> foreignKeys = schemaReader.GetForeignKeys(connectionString);
@@ -68,31 +67,12 @@ foreach (var table in tables)
     List<ColumnInfo> columns = schemaReader.GetColumns(connectionString, table);
     mappedTables.Add(table, columns);
 
-    string classCode = modelGenerator.GenerateModelClass(className, columns);
-    string outputPath = Path.Combine(outputRoot, $"DA_Layer/Models/{className}.cs");
-
-    // Check for overwrite
-    if (File.Exists(outputPath))
-    {
-        Console.Write($"⚠️  File '{outputPath}' exists. Overwrite? (Y/N): ");
-        string? answer = Console.ReadLine()?.Trim().ToUpper();
-        if (answer != "Y" && answer != "YES")
-        {
-            Console.WriteLine("Skipped.");
-            continue;
-        }
-    }
-
-    Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
-    File.WriteAllText(outputPath, classCode);
-    Console.WriteLine($"✅ Generated model for table '{className}' at: {outputPath}");
-
-    DaoInterfaceGenerator.WriteInterfaceToFile(className, columns, interfaceOutputDir);
+    modelGenerator.GenerateModelClass(className, columns, Path.Combine(outputRoot, "DA_Layer/Models"));
+    DaoInterfaceGenerator.WriteInterfaceToFile(className, columns, Path.Combine(outputRoot, "DA_Layer/Interfaces"));
 }
 
 // Generate DbContext
 string contextPath = Path.Combine(outputRoot, $"DA_Layer/{databaseName}Context.cs");
-
 if (File.Exists(contextPath))
 {
     Console.Write($"⚠️  DbContext file '{contextPath}' exists. Overwrite? (Y/N): ");
@@ -100,19 +80,18 @@ if (File.Exists(contextPath))
     if (ctxAnswer != "Y" && ctxAnswer != "YES")
     {
         Console.WriteLine("Skipped DbContext.");
-        return;
+    }
+    else
+    {
+        DbContextGenerator.GenerateContextClassToFile(databaseName, mappedTables, foreignKeys);
+        Console.WriteLine($"✅ DbContext generated at: {contextPath}");
     }
 }
-
-DbContextGenerator.GenerateContextClassToFile(databaseName, mappedTables, foreignKeys);
-Console.WriteLine($"✅ DbContext generated at: {contextPath}");
-
 Console.WriteLine("\n🎉 Done!");
 
-
-// Securely reads password without echoing to the console
 static string ReadPassword()
 {
+    // Securely reads password without echoing to the console
     var pwd = new Stack<char>();
     ConsoleKeyInfo key;
     while ((key = Console.ReadKey(intercept: true)).Key != ConsoleKey.Enter)
