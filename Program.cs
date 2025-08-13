@@ -2,9 +2,8 @@
 using System.Text.RegularExpressions;
 
 // Prompt for connection string
-// "Server=(localdb)\MSSQLLocalDB;Database=Contractor;Integrated Security=True;TrustServerCertificate=True";
 Console.WriteLine("Enter Connection String:");
-string? inputConnStr = "Server=(localdb)\\MSSQLLocalDB;Database=Contractor;Integrated Security=True;TrustServerCertificate=True"; //Console.ReadLine();
+string? inputConnStr = Console.ReadLine();
 
 while (string.IsNullOrWhiteSpace(inputConnStr))
 {
@@ -69,11 +68,17 @@ foreach (var table in tables)
 
     modelGenerator.GenerateModelClass(className, columns, Path.Combine(outputRoot, "DA_Layer/Models"));
     DaoInterfaceGenerator.WriteInterfaceToFile(className, columns, Path.Combine(outputRoot, "DA_Layer/Interfaces"));
+    DaoClassGenerator.WriteDaoToFile(className, $"{databaseName}Context", Path.Combine(outputRoot, "DA_Layer/DataAccessObjects"), columns);
 }
 
 // Generate DbContext
 string contextPath = Path.Combine(outputRoot, $"DA_Layer/{databaseName}Context.cs");
-if (File.Exists(contextPath))
+if (File.Exists(contextPath) == false)
+{
+    DbContextGenerator.GenerateContextClassToFile(databaseName, mappedTables, foreignKeys);
+    Console.WriteLine($"✅ DbContext generated at: {contextPath}");
+}
+else
 {
     Console.Write($"⚠️  DbContext file '{contextPath}' exists. Overwrite? (Y/N): ");
     string? ctxAnswer = Console.ReadLine()?.Trim().ToUpper();
@@ -87,6 +92,7 @@ if (File.Exists(contextPath))
         Console.WriteLine($"✅ DbContext generated at: {contextPath}");
     }
 }
+
 Console.WriteLine("\n🎉 Done!");
 
 static string ReadPassword()

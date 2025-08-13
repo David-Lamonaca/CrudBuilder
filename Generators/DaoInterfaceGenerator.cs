@@ -2,7 +2,7 @@ using System.Text;
 
 public static class DaoInterfaceGenerator
 {
-    public static string GenerateInterface(string className, List<ColumnInfo> columns)
+    private static string GenerateInterface(string className, List<ColumnInfo> columns)
     {
         var sb = new StringBuilder();
 
@@ -11,20 +11,12 @@ public static class DaoInterfaceGenerator
         sb.AppendLine($"public interface I{className}DAO");
         sb.AppendLine("{");
         sb.AppendLine($"    Task<int> Add({className} newEntity);");
-        sb.AppendLine($"    Task<int> Delete({className} deleteEntity);");
+        sb.AppendLine($"    Task<int> Delete(int id);");
         sb.AppendLine($"    Task<{className}?> GetById(int id);");
         sb.AppendLine($"    Task<int> Update({className} updatedEntity);");
         sb.AppendLine($"    Task<PagedResult<{className}>> GetAll(int? page = null, int? pageSize = null);");
 
-        foreach (ColumnInfo col in columns)
-        {
-            if (col.IsPrimaryKey || (!col.IsIndexed && !col.IsUnique)) continue;
-
-            string methodName = $"Get{className}By{col.Name}";
-            string clrType = SqlTypeMapper.MapToCSharpType(col.SqlType ?? "", col.IsNullable);
-
-            sb.AppendLine($"    Task<PagedResult<{className}>> {methodName}({clrType} {CamelCase(col.Name)}, int? page = null, int? pageSize = null);");
-        }
+        sb.Append(DaoMethodGenerator.GenerateFkIndexInterfaceMethods(className, columns));
 
         sb.AppendLine("}");
         return sb.ToString();
