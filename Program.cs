@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 
 // Prompt for connection string
 Console.WriteLine("Enter Connection String:");
-string? inputConnStr = Console.ReadLine();
+string? inputConnStr = "Server=(localdb)\\MSSQLLocalDB;Database=StockDashBoard;Integrated Security=True;TrustServerCertificate=True"; //Console.ReadLine();
 
 while (string.IsNullOrWhiteSpace(inputConnStr))
 {
@@ -55,6 +55,7 @@ string outputRoot = Path.Combine("Output", databaseName);
 
 IDatabaseSchemaReader schemaReader = new SqlServerSchemaReader();
 List<ForeignKeyInfo> foreignKeys = schemaReader.GetForeignKeys(connectionString);
+
 ModelClassGenerator modelGenerator = new ModelClassGenerator(foreignKeys);
 
 List<string> tables = schemaReader.GetTables(connectionString);
@@ -66,7 +67,7 @@ foreach (var table in tables)
     List<ColumnInfo> columns = schemaReader.GetColumns(connectionString, table);
     mappedTables.Add(table, columns);
 
-    modelGenerator.GenerateModelClass(className, columns, Path.Combine(outputRoot, "DA_Layer/Models"));
+    modelGenerator.GenerateModelClass(className, table, columns, Path.Combine(outputRoot, "DA_Layer/Models"));
     DaoInterfaceGenerator.WriteInterfaceToFile(className, columns, Path.Combine(outputRoot, "DA_Layer/Interfaces"));
     DaoClassGenerator.WriteDaoToFile(className, $"{databaseName}Context", Path.Combine(outputRoot, "DA_Layer/DataAccessObjects"), columns);
 }
@@ -93,7 +94,7 @@ else
     }
 }
 
-Console.WriteLine("\n🎉 Done!");
+Console.WriteLine("\n🎉 Done!"); 
 
 static string ReadPassword()
 {

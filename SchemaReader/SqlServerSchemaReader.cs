@@ -102,7 +102,7 @@ public class SqlServerSchemaReader : IDatabaseSchemaReader
                     maxLength: maxLength,
                     sqlType: sqlType,
                     isRowVer: isRowVersion,
-                    isNullable: isNullable // ✅ Added this argument
+                    isNullable: isNullable
                 ));
             }
         }

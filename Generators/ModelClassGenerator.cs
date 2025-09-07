@@ -15,12 +15,12 @@ public class ModelClassGenerator
         _fksToTable = _foreignKeys.GroupBy(fk => fk.ToTable).ToDictionary(g => g.Key, g => g.ToList());
     }
 
-    public void GenerateModelClass(string tableName, List<ColumnInfo> columns, string outputDirectory)
+    public void GenerateModelClass(string className, string tableName, List<ColumnInfo> columns, string outputDirectory)
     {
         var sb = new StringBuilder();
-        sb.AppendLine(ClassCommentGenerator.Generate(tableName, @"Model Class which mimics the corresponding table in the database.
+        sb.AppendLine(ClassCommentGenerator.Generate(className, @"Model Class which mimics the corresponding table in the database.
 *             Sole purpose is to hold data."));
-        sb.AppendLine($"public class {tableName}");
+        sb.AppendLine($"public class {className}");
         sb.AppendLine("{");
 
         // Properties for table columns
@@ -48,7 +48,7 @@ public class ModelClassGenerator
                 string toClass = NameHumanizer.Singularize(fk.ToTable);
                 sb.AppendLine($"    public virtual {toClass}? {toClass} {{ get; set; }}");
             }
-        }
+        } 
 
         // Reverse FK: collections (e.g. public virtual ICollection<UserToken> UserTokens { get; set; })
         if (_fksToTable.TryGetValue(tableName, out var toFks))
